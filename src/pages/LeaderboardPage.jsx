@@ -75,21 +75,28 @@ export default function LeaderboardPage() {
     }
   };
 
-  const getRankStyles = (rank) => {
-    if (rank === 1) return 'bg-yellow-100 text-yellow-800';
-    if (rank === 2) return 'bg-gray-200 text-gray-700';
-    if (rank === 3) return 'bg-orange-100 text-orange-800';
-    return 'bg-blue-50 text-blue-700';
+  const getRankDisplay = (rank) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return rank;
   };
+
+  const totalPlayers = leaderboard.length;
+  const totalPredictions = leaderboard.reduce(
+    (sum, row) => sum + row.predictionsSubmitted,
+    0
+  );
+  const highestScore = leaderboard.length > 0 ? leaderboard[0].totalPoints : 0;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-8">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">Loading leaderboard...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mb-4"></div>
+              <p className="text-slate-400">Loading leaderboard...</p>
             </div>
           </div>
         </div>
@@ -98,95 +105,138 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Leaderboard</h1>
-            <p className="text-gray-600">Quarter Final standings</p>
+            <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-2">
+              Quarter Finals
+            </p>
+            <h1 className="text-3xl md:text-4xl font-bold text-white">
+              🏆 Leaderboard
+            </h1>
+            <p className="text-slate-400 mt-2">Who is leading the league?</p>
           </div>
           <button
             onClick={fetchLeaderboard}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+            className="self-start sm:self-auto px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 active:bg-slate-600 transition-colors"
           >
-            Refresh
+            ↻ Refresh
           </button>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-lg border bg-red-50 text-red-800 border-red-200">
+          <div className="mb-6 p-4 rounded-xl border bg-red-950/50 text-red-300 border-red-900">
             <p className="text-sm font-medium">{error}</p>
           </div>
         )}
 
+        <div className="grid grid-cols-3 gap-3 md:gap-5 mb-8">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 text-center">
+            <p className="text-2xl md:text-3xl font-bold text-white">{totalPlayers}</p>
+            <p className="text-xs md:text-sm text-slate-400 mt-1">Total Players</p>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 text-center">
+            <p className="text-2xl md:text-3xl font-bold text-white">{totalPredictions}</p>
+            <p className="text-xs md:text-sm text-slate-400 mt-1">Total Predictions</p>
+          </div>
+          <div className="bg-slate-900 border border-emerald-900/60 rounded-2xl p-4 md:p-6 text-center">
+            <p className="text-2xl md:text-3xl font-bold text-emerald-400">{highestScore}</p>
+            <p className="text-xs md:text-sm text-slate-400 mt-1">Highest Score</p>
+          </div>
+        </div>
+
         {leaderboard.length === 0 && !error ? (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <p className="text-gray-600">No players found.</p>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center">
+            <p className="text-slate-400">No players found.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <tr className="border-b border-slate-800 bg-slate-900/80">
+                    <th className="px-4 md:px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Rank
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 md:px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Player Name
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 md:px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       QF Points
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Predictions Submitted
+                    <th className="px-4 md:px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Predictions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {leaderboard.map((row) => (
-                    <tr
-                      key={row.playerId}
-                      className={`hover:bg-gray-50 transition-colors ${
-                        row.rank === 1 ? 'bg-yellow-50' : ''
-                      }`}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold ${getRankStyles(
-                            row.rank
-                          )}`}
-                        >
-                          {row.rank}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {row.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm font-bold text-gray-900">
-                          {row.totalPoints}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm text-gray-600">
-                          {row.predictionsSubmitted} / 4
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-slate-800">
+                  {leaderboard.map((row) => {
+                    const isFirst = row.rank === 1;
+                    const isTopThree = row.rank <= 3;
+
+                    return (
+                      <tr
+                        key={row.playerId}
+                        className={`transition-colors ${
+                          isFirst
+                            ? 'bg-emerald-950/40 hover:bg-emerald-950/60'
+                            : 'hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center justify-center h-9 w-9 rounded-full font-bold ${
+                              isTopThree
+                                ? 'text-xl'
+                                : 'text-sm bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {getRankDisplay(row.rank)}
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`text-sm font-semibold ${
+                              isFirst ? 'text-emerald-300' : 'text-white'
+                            }`}
+                          >
+                            {row.name}
+                            {isFirst && (
+                              <span className="ml-2 text-xs font-bold text-emerald-400 bg-emerald-950 border border-emerald-900 px-2 py-0.5 rounded-full align-middle">
+                                LEADER
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right">
+                          <span
+                            className={`text-base font-bold ${
+                              isFirst ? 'text-emerald-400' : 'text-white'
+                            }`}
+                          >
+                            {row.totalPoints}
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm text-slate-400">
+                            {row.predictionsSubmitted} / 4
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-900">
-            Scoring per match: Correct qualified team +5 • Exact score +2 • Winning method +1
-            (only if qualified team is correct) • Max 8 points per match
+        <div className="mt-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+          <p className="text-sm text-slate-400 text-center">
+            <span className="text-emerald-400 font-semibold">Scoring per match:</span> Correct
+            qualified team +5 · Exact score +2 · Winning method +1 (only if qualified team is
+            correct) · Max 8 points per match
           </p>
         </div>
       </div>
