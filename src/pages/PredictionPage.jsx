@@ -13,12 +13,20 @@ export default function PredictionPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState({});
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     if (player) {
       fetchMatchesAndPredictions();
     }
   }, [player]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
@@ -78,7 +86,8 @@ export default function PredictionPage() {
           predicted_team_a_score: pred.predicted_team_a_score,
           predicted_team_b_score: pred.predicted_team_b_score,
           predicted_winning_method: pred.predicted_winning_method,
-          predicted_qualified_team: pred.predicted_qualified_team
+          predicted_qualified_team: pred.predicted_qualified_team,
+          points: pred.points
         };
       });
       setPredictions(predictionsMap);
@@ -91,6 +100,38 @@ export default function PredictionPage() {
 
   const isMatchLocked = (kickoffTime) => {
     return new Date() >= new Date(kickoffTime);
+  };
+
+  const hasActualResult = (match) => {
+    return (
+      match.actual_team_a_score !== null &&
+      match.actual_team_a_score !== undefined &&
+      match.actual_team_b_score !== null &&
+      match.actual_team_b_score !== undefined &&
+      match.actual_winning_method !== null &&
+      match.actual_winning_method !== undefined &&
+      match.actual_winning_method !== '' &&
+      match.actual_qualified_team !== null &&
+      match.actual_qualified_team !== undefined &&
+      match.actual_qualified_team !== ''
+    );
+  };
+
+  const calculatePoints = (prediction, match) => {
+    const qualifiedCorrect =
+      prediction.predicted_qualified_team === match.actual_qualified_team;
+    const scoreCorrect =
+      prediction.predicted_team_a_score === match.actual_team_a_score &&
+      prediction.predicted_team_b_score === match.actual_team_b_score;
+    const methodCorrect =
+      prediction.predicted_winning_method === match.actual_winning_method;
+
+    let points = 0;
+    if (qualifiedCorrect) points += 5;
+    if (scoreCorrect) points += 2;
+    if (qualifiedCorrect && methodCorrect) points += 1;
+
+    return points;
   };
 
   const handlePredictionChange = (matchId, field, value) => {
@@ -106,14 +147,25 @@ export default function PredictionPage() {
   const savePrediction = async (match) => {
     try {
       setMessage({ type: '', text: '' });
+
+      if (isMatchLocked(match.kickoff_time)) {
+        setMessage({
+          type: 'error',
+          text: `Match ${match.match_number} is locked - kickoff time has passed`
+        });
+        return;
+      }
+
       const pred = predictions[match.id];
 
       if (
         !pred ||
         pred.predicted_team_a_score === undefined ||
         pred.predicted_team_a_score === '' ||
+        pred.predicted_team_a_score === null ||
         pred.predicted_team_b_score === undefined ||
         pred.predicted_team_b_score === '' ||
+        pred.predicted_team_b_score === null ||
         !pred.predicted_winning_method ||
         !pred.predicted_qualified_team
       ) {
@@ -124,15 +176,23 @@ export default function PredictionPage() {
         return;
       }
 
-      if (isMatchLocked(match.kickoff_time)) {
+      setSaving((prev) => ({ ...prev, [match.id]: true }));
+
+      const { data: freshMatch, error: matchError } = await supabase
+        .from('qf_matches')
+        .select('*')
+        .eq('id', match.id)
+        .single();
+
+      if (matchError) throw matchError;
+
+      if (freshMatch && isMatchLocked(freshMatch.kickoff_time)) {
         setMessage({
           type: 'error',
           text: `Match ${match.match_number} is locked - kickoff time has passed`
         });
         return;
       }
-
-      setSaving((prev) => ({ ...prev, [match.id]: true }));
 
       const predictionData = {
         player_id: player.id,
@@ -143,11 +203,26 @@ export default function PredictionPage() {
         predicted_qualified_team: pred.predicted_qualified_team
       };
 
+      let points = 0;
+      if (freshMatch && hasActualResult(freshMatch)) {
+        points = calculatePoints(predictionData, freshMatch);
+      }
+
+      predictionData.points = points;
+
       const { error } = await supabase
         .from('qf_predictions')
         .upsert([predictionData], { onConflict: 'player_id,match_id' });
 
       if (error) throw error;
+
+      setPredictions((prev) => ({
+        ...prev,
+        [match.id]: {
+          ...prev[match.id],
+          points
+        }
+      }));
 
       setMessage({
         type: 'success',
@@ -286,12 +361,13 @@ export default function PredictionPage() {
             const locked = isMatchLocked(match.kickoff_time);
             const pred = predictions[match.id] || {};
             const kickoffDate = new Date(match.kickoff_time);
+            const resultEntered = hasActualResult(match);
 
             return (
               <div
                 key={match.id}
                 className={`bg-white rounded-lg shadow-md border-l-4 p-6 ${
-                  locked ? 'border-gray-400 opacity-80' : 'border-blue-500'
+                  locked ? 'border-gray-400' : 'border-blue-500'
                 }`}
               >
                 <div className="flex justify-between items-start mb-6">
@@ -314,144 +390,163 @@ export default function PredictionPage() {
                   </div>
                   <span
                     className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                      locked ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-800'
+                      locked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                     }`}
                   >
                     {locked ? 'Locked' : 'Open'}
                   </span>
                 </div>
 
-                {locked ? (
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-600">
-                    <p className="font-semibold mb-2">Predictions are locked for this match.</p>
-                    {pred.predicted_team_a_score !== undefined ? (
-                      <p>
-                        Your prediction: {match.team_a} {pred.predicted_team_a_score} -{' '}
-                        {pred.predicted_team_b_score} {match.team_b} • Method:{' '}
-                        {pred.predicted_winning_method} • Qualify:{' '}
-                        {pred.predicted_qualified_team}
+                {locked && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
+                    <p className="font-semibold">
+                      Predictions are locked - kickoff time has passed.
+                    </p>
+                    {resultEntered && pred.predicted_team_a_score !== undefined && (
+                      <p className="mt-1">
+                        Result: {match.team_a} {match.actual_team_a_score} -{' '}
+                        {match.actual_team_b_score} {match.team_b} • Method:{' '}
+                        {match.actual_winning_method} • Qualified:{' '}
+                        {match.actual_qualified_team} •{' '}
+                        <span className="font-bold text-gray-900">
+                          Points: {pred.points ?? 0}
+                        </span>
                       </p>
-                    ) : (
-                      <p>You did not make a prediction for this match.</p>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          htmlFor={`score_a_${match.id}`}
-                          className="block text-sm font-semibold text-gray-700 mb-2"
-                        >
-                          {match.team_a} Score
-                        </label>
-                        <input
-                          id={`score_a_${match.id}`}
-                          type="number"
-                          min="0"
-                          value={pred.predicted_team_a_score ?? ''}
-                          onChange={(e) =>
-                            handlePredictionChange(
-                              match.id,
-                              'predicted_team_a_score',
-                              e.target.value
-                            )
-                          }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor={`score_b_${match.id}`}
-                          className="block text-sm font-semibold text-gray-700 mb-2"
-                        >
-                          {match.team_b} Score
-                        </label>
-                        <input
-                          id={`score_b_${match.id}`}
-                          type="number"
-                          min="0"
-                          value={pred.predicted_team_b_score ?? ''}
-                          onChange={(e) =>
-                            handlePredictionChange(
-                              match.id,
-                              'predicted_team_b_score',
-                              e.target.value
-                            )
-                          }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          htmlFor={`method_${match.id}`}
-                          className="block text-sm font-semibold text-gray-700 mb-2"
-                        >
-                          Winning Method
-                        </label>
-                        <select
-                          id={`method_${match.id}`}
-                          value={pred.predicted_winning_method || ''}
-                          onChange={(e) =>
-                            handlePredictionChange(
-                              match.id,
-                              'predicted_winning_method',
-                              e.target.value
-                            )
-                          }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                        >
-                          <option value="">Select...</option>
-                          <option value="90">90</option>
-                          <option value="120">120</option>
-                          <option value="Pen">Pen</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor={`qualify_${match.id}`}
-                          className="block text-sm font-semibold text-gray-700 mb-2"
-                        >
-                          Team to Qualify
-                        </label>
-                        <select
-                          id={`qualify_${match.id}`}
-                          value={pred.predicted_qualified_team || ''}
-                          onChange={(e) =>
-                            handlePredictionChange(
-                              match.id,
-                              'predicted_qualified_team',
-                              e.target.value
-                            )
-                          }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                        >
-                          <option value="">Select...</option>
-                          <option value={match.team_a}>{match.team_a}</option>
-                          <option value={match.team_b}>{match.team_b}</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => savePrediction(match)}
-                      disabled={saving[match.id]}
-                      className={`w-full py-2 rounded-lg font-semibold transition-colors ${
-                        saving[match.id]
-                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
-                      }`}
-                    >
-                      {saving[match.id] ? 'Saving...' : 'Save Prediction'}
-                    </button>
-                  </div>
                 )}
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        htmlFor={`score_a_${match.id}`}
+                        className="block text-sm font-semibold text-gray-700 mb-2"
+                      >
+                        {match.team_a} Score
+                      </label>
+                      <input
+                        id={`score_a_${match.id}`}
+                        type="number"
+                        min="0"
+                        disabled={locked}
+                        value={pred.predicted_team_a_score ?? ''}
+                        onChange={(e) =>
+                          handlePredictionChange(
+                            match.id,
+                            'predicted_team_a_score',
+                            e.target.value
+                          )
+                        }
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        }`}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`score_b_${match.id}`}
+                        className="block text-sm font-semibold text-gray-700 mb-2"
+                      >
+                        {match.team_b} Score
+                      </label>
+                      <input
+                        id={`score_b_${match.id}`}
+                        type="number"
+                        min="0"
+                        disabled={locked}
+                        value={pred.predicted_team_b_score ?? ''}
+                        onChange={(e) =>
+                          handlePredictionChange(
+                            match.id,
+                            'predicted_team_b_score',
+                            e.target.value
+                          )
+                        }
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        }`}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        htmlFor={`method_${match.id}`}
+                        className="block text-sm font-semibold text-gray-700 mb-2"
+                      >
+                        Winning Method
+                      </label>
+                      <select
+                        id={`method_${match.id}`}
+                        disabled={locked}
+                        value={pred.predicted_winning_method || ''}
+                        onChange={(e) =>
+                          handlePredictionChange(
+                            match.id,
+                            'predicted_winning_method',
+                            e.target.value
+                          )
+                        }
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white ${
+                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <option value="">Select...</option>
+                        <option value="90">90</option>
+                        <option value="120">120</option>
+                        <option value="Pen">Pen</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor={`qualify_${match.id}`}
+                        className="block text-sm font-semibold text-gray-700 mb-2"
+                      >
+                        Team to Qualify
+                      </label>
+                      <select
+                        id={`qualify_${match.id}`}
+                        disabled={locked}
+                        value={pred.predicted_qualified_team || ''}
+                        onChange={(e) =>
+                          handlePredictionChange(
+                            match.id,
+                            'predicted_qualified_team',
+                            e.target.value
+                          )
+                        }
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white ${
+                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <option value="">Select...</option>
+                        <option value={match.team_a}>{match.team_a}</option>
+                        <option value={match.team_b}>{match.team_b}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => savePrediction(match)}
+                    disabled={locked || saving[match.id]}
+                    className={`w-full py-2 rounded-lg font-semibold transition-colors ${
+                      locked || saving[match.id]
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                    }`}
+                  >
+                    {locked
+                      ? 'Locked'
+                      : saving[match.id]
+                      ? 'Saving...'
+                      : 'Save Prediction'}
+                  </button>
+                </div>
               </div>
             );
           })}
