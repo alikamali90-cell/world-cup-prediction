@@ -8,11 +8,15 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     fetchLeaderboard();
+    const interval = setInterval(() => {
+      fetchLeaderboard(false);
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       setError('');
 
       const { data: playersData, error: playersError } = await supabase
@@ -37,14 +41,19 @@ export default function LeaderboardPage() {
           (pred) => pred.player_id === player.id
         );
 
-        const totalPoints = playerPredictions.reduce(
+        const qfPoints = playerPredictions.reduce(
           (sum, pred) => sum + (pred.points || 0),
           0
         );
 
+        const previousPoints = player.previous_points || 0;
+        const totalPoints = previousPoints + qfPoints;
+
         return {
           playerId: player.id,
           name: player.name,
+          previousPoints,
+          qfPoints,
           totalPoints,
           predictionsSubmitted: playerPredictions.length
         };
@@ -58,11 +67,11 @@ export default function LeaderboardPage() {
       });
 
       let currentRank = 0;
-      let previousPoints = null;
+      let previousTotal = null;
       const rankedRows = rows.map((row, index) => {
-        if (row.totalPoints !== previousPoints) {
+        if (row.totalPoints !== previousTotal) {
           currentRank = index + 1;
-          previousPoints = row.totalPoints;
+          previousTotal = row.totalPoints;
         }
         return { ...row, rank: currentRank };
       });
@@ -71,7 +80,7 @@ export default function LeaderboardPage() {
     } catch (err) {
       setError(`Failed to load leaderboard: ${err.message}`);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -92,7 +101,7 @@ export default function LeaderboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mb-4"></div>
@@ -106,7 +115,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
           <div>
             <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-2">
@@ -115,10 +124,12 @@ export default function LeaderboardPage() {
             <h1 className="text-3xl md:text-4xl font-bold text-white">
               🏆 Leaderboard
             </h1>
-            <p className="text-slate-400 mt-2">Who is leading the league?</p>
+            <p className="text-slate-400 mt-2">
+              Who is leading the league? Updates automatically every 10 seconds.
+            </p>
           </div>
           <button
-            onClick={fetchLeaderboard}
+            onClick={() => fetchLeaderboard(true)}
             className="self-start sm:self-auto px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 active:bg-slate-600 transition-colors"
           >
             ↻ Refresh
@@ -156,16 +167,22 @@ export default function LeaderboardPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-900/80">
-                    <th className="px-4 md:px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th className="px-3 md:px-5 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Rank
                     </th>
-                    <th className="px-4 md:px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Player Name
+                    <th className="px-3 md:px-5 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Player
                     </th>
-                    <th className="px-4 md:px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Previous Points
+                    </th>
+                    <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       QF Points
                     </th>
-                    <th className="px-4 md:px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Total Points
+                    </th>
+                    <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Predictions
                     </th>
                   </tr>
@@ -184,7 +201,7 @@ export default function LeaderboardPage() {
                             : 'hover:bg-slate-800/50'
                         }`}
                       >
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center justify-center h-9 w-9 rounded-full font-bold ${
                               isTopThree
@@ -195,7 +212,7 @@ export default function LeaderboardPage() {
                             {getRankDisplay(row.rank)}
                           </span>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap">
                           <span
                             className={`text-sm font-semibold ${
                               isFirst ? 'text-emerald-300' : 'text-white'
@@ -209,7 +226,17 @@ export default function LeaderboardPage() {
                             )}
                           </span>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right">
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm text-slate-400">
+                            {row.previousPoints}
+                          </span>
+                        </td>
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm font-semibold text-white">
+                            {row.qfPoints}
+                          </span>
+                        </td>
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
                           <span
                             className={`text-base font-bold ${
                               isFirst ? 'text-emerald-400' : 'text-white'
@@ -218,7 +245,7 @@ export default function LeaderboardPage() {
                             {row.totalPoints}
                           </span>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right">
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
                           <span className="text-sm text-slate-400">
                             {row.predictionsSubmitted} / 4
                           </span>
@@ -234,9 +261,11 @@ export default function LeaderboardPage() {
 
         <div className="mt-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
           <p className="text-sm text-slate-400 text-center">
+            <span className="text-emerald-400 font-semibold">Total Points</span> = Previous
+            Points + QF Points ·{' '}
             <span className="text-emerald-400 font-semibold">Scoring per match:</span> Correct
             qualified team +5 · Exact score +2 · Winning method +1 (only if qualified team is
-            correct) · Max 8 points per match
+            correct) · Max 8 per match
           </p>
         </div>
       </div>
