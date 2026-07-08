@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
+const getTeamFlag = (teamName) => {
+  const flags = {
+    France: '🇫🇷',
+    Morocco: '🇲🇦',
+    England: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    Norway: '🇳🇴',
+    Belgium: '🇧🇪',
+    Spain: '🇪🇸',
+    Argentina: '🇦🇷',
+    Colombia: '🇨🇴'
+  };
+  return flags[teamName] || '⚽';
+};
+
 export default function PredictionPage() {
   const [player, setPlayer] = useState(null);
   const [loginName, setLoginName] = useState('');
@@ -98,8 +112,14 @@ export default function PredictionPage() {
     }
   };
 
+  const getLockTime = (kickoffTime) => {
+    const kickoff = new Date(kickoffTime);
+    return new Date(kickoff.getTime() - 60 * 60 * 1000);
+  };
+
   const isMatchLocked = (kickoffTime) => {
-    return new Date() >= new Date(kickoffTime);
+    const lockTime = getLockTime(kickoffTime);
+    return new Date() >= lockTime;
   };
 
   const hasActualResult = (match) => {
@@ -151,7 +171,7 @@ export default function PredictionPage() {
       if (isMatchLocked(match.kickoff_time)) {
         setMessage({
           type: 'error',
-          text: `Match ${match.match_number} is locked - kickoff time has passed`
+          text: `Match ${match.match_number} is locked - predictions close 1 hour before kickoff`
         });
         return;
       }
@@ -189,7 +209,7 @@ export default function PredictionPage() {
       if (freshMatch && isMatchLocked(freshMatch.kickoff_time)) {
         setMessage({
           type: 'error',
-          text: `Match ${match.match_number} is locked - kickoff time has passed`
+          text: `Match ${match.match_number} is locked - predictions close 1 hour before kickoff`
         });
         return;
       }
@@ -241,20 +261,23 @@ export default function PredictionPage() {
 
   if (!player) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction League</h1>
-          <p className="text-gray-600 mb-6">Enter your name and login code</p>
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8">
+          <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-2">
+            Quarter Finals
+          </p>
+          <h1 className="text-2xl font-bold text-white mb-2">⚽ Prediction League</h1>
+          <p className="text-slate-400 mb-6">Enter your name and login code</p>
 
           {loginError && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+            <div className="mb-4 p-3 rounded-xl bg-red-950/50 border border-red-900 text-red-300 text-sm">
               {loginError}
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label htmlFor="login_name" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="login_name" className="block text-sm font-semibold text-slate-300 mb-2">
                 Name
               </label>
               <input
@@ -262,13 +285,13 @@ export default function PredictionPage() {
                 type="text"
                 value={loginName}
                 onChange={(e) => setLoginName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 placeholder="Your name"
               />
             </div>
 
             <div>
-              <label htmlFor="login_code" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="login_code" className="block text-sm font-semibold text-slate-300 mb-2">
                 Login Code
               </label>
               <input
@@ -276,7 +299,7 @@ export default function PredictionPage() {
                 type="password"
                 value={loginCode}
                 onChange={(e) => setLoginCode(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 placeholder="Your login code"
               />
             </div>
@@ -284,10 +307,10 @@ export default function PredictionPage() {
             <button
               type="submit"
               disabled={loggingIn}
-              className={`w-full py-2 rounded-lg font-semibold transition-colors ${
+              className={`w-full py-2.5 rounded-xl font-semibold transition-colors ${
                 loggingIn
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700'
               }`}
             >
               {loggingIn ? 'Logging in...' : 'Login'}
@@ -300,12 +323,12 @@ export default function PredictionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-8">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">Loading matches...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mb-4"></div>
+              <p className="text-slate-400">Loading matches...</p>
             </div>
           </div>
         </div>
@@ -314,13 +337,16 @@ export default function PredictionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">Quarter Final Predictions</h1>
-            <p className="text-gray-600">
-              Logged in as <span className="font-semibold">{player.name}</span>
+            <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-2">
+              Quarter Finals
+            </p>
+            <h1 className="text-3xl md:text-4xl font-bold text-white">⚽ Predictions</h1>
+            <p className="text-slate-400 mt-2">
+              Logged in as <span className="font-semibold text-white">{player.name}</span>
             </p>
           </div>
           <button
@@ -331,7 +357,7 @@ export default function PredictionPage() {
               setPredictions({});
               setMatches([]);
             }}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="self-start sm:self-auto px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 transition-colors"
           >
             Logout
           </button>
@@ -339,20 +365,24 @@ export default function PredictionPage() {
 
         {message.text && (
           <div
-            className={`mb-6 p-4 rounded-lg border ${
+            className={`mb-6 p-4 rounded-xl border ${
               message.type === 'error'
-                ? 'bg-red-50 text-red-800 border-red-200'
-                : 'bg-green-50 text-green-800 border-green-200'
+                ? 'bg-red-950/50 text-red-300 border-red-900'
+                : 'bg-emerald-950/50 text-emerald-300 border-emerald-900'
             }`}
           >
             <p className="text-sm font-medium">{message.text}</p>
           </div>
         )}
 
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-900">
-            Scoring: Correct team to qualify +5 • Exact score (after extra time) +2 • Winning
-            method +1 (only if qualified team is correct) • Max 8 points per match
+        <div className="mb-8 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+          <p className="text-sm text-slate-400 text-center">
+            <span className="text-emerald-400 font-semibold">Scoring:</span> Correct team to
+            qualify +5 · Exact score (after extra time) +2 · Winning method +1 (only if qualified
+            team is correct) · Max 8 points per match ·{' '}
+            <span className="text-emerald-400 font-semibold">
+              Predictions lock 1 hour before kickoff
+            </span>
           </p>
         </div>
 
@@ -361,22 +391,28 @@ export default function PredictionPage() {
             const locked = isMatchLocked(match.kickoff_time);
             const pred = predictions[match.id] || {};
             const kickoffDate = new Date(match.kickoff_time);
+            const lockDate = getLockTime(match.kickoff_time);
             const resultEntered = hasActualResult(match);
 
             return (
               <div
                 key={match.id}
-                className={`bg-white rounded-lg shadow-md border-l-4 p-6 ${
-                  locked ? 'border-gray-400' : 'border-blue-500'
+                className={`bg-slate-900 border rounded-2xl p-6 ${
+                  locked ? 'border-slate-800' : 'border-emerald-900/60'
                 }`}
               >
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">
-                      {match.team_a} vs {match.team_b}
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                      Match {match.match_number}
+                    </p>
+                    <h2 className="text-xl font-bold text-white">
+                      {getTeamFlag(match.team_a)} {match.team_a}{' '}
+                      <span className="text-slate-500 font-normal">vs</span>{' '}
+                      {getTeamFlag(match.team_b)} {match.team_b}
                     </h2>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Kickoff:{' '}
+                    <p className="text-sm text-slate-400 mt-1">
+                      🕐 Kickoff:{' '}
                       {kickoffDate.toLocaleString('en-GB', {
                         timeZone: 'UTC',
                         year: 'numeric',
@@ -387,28 +423,44 @@ export default function PredictionPage() {
                       })}{' '}
                       UTC
                     </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      🔒 Lock time:{' '}
+                      {lockDate.toLocaleString('en-GB', {
+                        timeZone: 'UTC',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}{' '}
+                      UTC (1 hour before kickoff)
+                    </p>
                   </div>
                   <span
                     className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                      locked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                      locked
+                        ? 'bg-red-950 text-red-400 border border-red-900'
+                        : 'bg-emerald-950 text-emerald-400 border border-emerald-900'
                     }`}
                   >
-                    {locked ? 'Locked' : 'Open'}
+                    {locked ? '🔒 Locked 1 hour before kickoff' : '🟢 Open'}
                   </span>
                 </div>
 
                 {locked && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
+                  <div className="mb-4 p-4 bg-slate-800/60 rounded-xl border border-slate-700 text-sm text-slate-300">
                     <p className="font-semibold">
-                      Predictions are locked - kickoff time has passed.
+                      Predictions are locked - they close 1 hour before kickoff.
                     </p>
                     {resultEntered && pred.predicted_team_a_score !== undefined && (
-                      <p className="mt-1">
-                        Result: {match.team_a} {match.actual_team_a_score} -{' '}
-                        {match.actual_team_b_score} {match.team_b} • Method:{' '}
-                        {match.actual_winning_method} • Qualified:{' '}
-                        {match.actual_qualified_team} •{' '}
-                        <span className="font-bold text-gray-900">
+                      <p className="mt-2">
+                        Result: {getTeamFlag(match.team_a)} {match.team_a}{' '}
+                        {match.actual_team_a_score} - {match.actual_team_b_score}{' '}
+                        {getTeamFlag(match.team_b)} {match.team_b} · Method:{' '}
+                        {match.actual_winning_method} · Qualified:{' '}
+                        {getTeamFlag(match.actual_qualified_team)}{' '}
+                        {match.actual_qualified_team} ·{' '}
+                        <span className="font-bold text-emerald-400">
                           Points: {pred.points ?? 0}
                         </span>
                       </p>
@@ -421,9 +473,9 @@ export default function PredictionPage() {
                     <div>
                       <label
                         htmlFor={`score_a_${match.id}`}
-                        className="block text-sm font-semibold text-gray-700 mb-2"
+                        className="block text-sm font-semibold text-slate-300 mb-2"
                       >
-                        {match.team_a} Score
+                        {getTeamFlag(match.team_a)} {match.team_a} Score
                       </label>
                       <input
                         id={`score_a_${match.id}`}
@@ -438,8 +490,10 @@ export default function PredictionPage() {
                             e.target.value
                           )
                         }
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
+                          locked
+                            ? 'bg-slate-800/50 border-slate-800 text-slate-500 cursor-not-allowed'
+                            : 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
                         }`}
                         placeholder="0"
                       />
@@ -447,9 +501,9 @@ export default function PredictionPage() {
                     <div>
                       <label
                         htmlFor={`score_b_${match.id}`}
-                        className="block text-sm font-semibold text-gray-700 mb-2"
+                        className="block text-sm font-semibold text-slate-300 mb-2"
                       >
-                        {match.team_b} Score
+                        {getTeamFlag(match.team_b)} {match.team_b} Score
                       </label>
                       <input
                         id={`score_b_${match.id}`}
@@ -464,8 +518,10 @@ export default function PredictionPage() {
                             e.target.value
                           )
                         }
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
+                          locked
+                            ? 'bg-slate-800/50 border-slate-800 text-slate-500 cursor-not-allowed'
+                            : 'bg-slate-800 border-slate-700 text-white placeholder-slate-500'
                         }`}
                         placeholder="0"
                       />
@@ -476,7 +532,7 @@ export default function PredictionPage() {
                     <div>
                       <label
                         htmlFor={`method_${match.id}`}
-                        className="block text-sm font-semibold text-gray-700 mb-2"
+                        className="block text-sm font-semibold text-slate-300 mb-2"
                       >
                         Winning Method
                       </label>
@@ -491,21 +547,23 @@ export default function PredictionPage() {
                             e.target.value
                           )
                         }
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white ${
-                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
+                          locked
+                            ? 'bg-slate-800/50 border-slate-800 text-slate-500 cursor-not-allowed'
+                            : 'bg-slate-800 border-slate-700 text-white'
                         }`}
                       >
                         <option value="">Select...</option>
-                        <option value="90">90</option>
-                        <option value="120">120</option>
-                        <option value="Pen">Pen</option>
+                        <option value="90">90 mins</option>
+                        <option value="120">Extra time</option>
+                        <option value="Pen">Penalties</option>
                       </select>
                     </div>
 
                     <div>
                       <label
                         htmlFor={`qualify_${match.id}`}
-                        className="block text-sm font-semibold text-gray-700 mb-2"
+                        className="block text-sm font-semibold text-slate-300 mb-2"
                       >
                         Team to Qualify
                       </label>
@@ -520,13 +578,19 @@ export default function PredictionPage() {
                             e.target.value
                           )
                         }
-                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white ${
-                          locked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                        className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${
+                          locked
+                            ? 'bg-slate-800/50 border-slate-800 text-slate-500 cursor-not-allowed'
+                            : 'bg-slate-800 border-slate-700 text-white'
                         }`}
                       >
                         <option value="">Select...</option>
-                        <option value={match.team_a}>{match.team_a}</option>
-                        <option value={match.team_b}>{match.team_b}</option>
+                        <option value={match.team_a}>
+                          {getTeamFlag(match.team_a)} {match.team_a}
+                        </option>
+                        <option value={match.team_b}>
+                          {getTeamFlag(match.team_b)} {match.team_b}
+                        </option>
                       </select>
                     </div>
                   </div>
@@ -534,17 +598,17 @@ export default function PredictionPage() {
                   <button
                     onClick={() => savePrediction(match)}
                     disabled={locked || saving[match.id]}
-                    className={`w-full py-2 rounded-lg font-semibold transition-colors ${
+                    className={`w-full py-2.5 rounded-xl font-semibold transition-colors ${
                       locked || saving[match.id]
-                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700'
                     }`}
                   >
                     {locked
-                      ? 'Locked'
+                      ? '🔒 Locked 1 hour before kickoff'
                       : saving[match.id]
                       ? 'Saving...'
-                      : 'Save Prediction'}
+                      : '💾 Save Prediction'}
                   </button>
                 </div>
               </div>
