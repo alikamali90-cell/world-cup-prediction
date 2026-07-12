@@ -16,16 +16,18 @@ const getTeamFlag = (teamName) => {
 };
 
 const getMethodLabel = (method) => {
-  if (method === '90') return 'Normal';
-  if (method === '120') return 'ET';
-  if (method === 'Pen') return 'Pens';
+  if (method === '90') return '90';
+  if (method === '120') return '120';
+  if (method === 'Pen') return 'Pen';
   return method || '';
 };
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState([]);
-  const [matches, setMatches] = useState([]);
-  const [predictionsByPlayer, setPredictionsByPlayer] = useState({});
+  const [qfMatches, setQfMatches] = useState([]);
+  const [sfMatches, setSfMatches] = useState([]);
+  const [qfPredictionsByPlayer, setQfPredictionsByPlayer] = useState({});
+  const [sfPredictionsByPlayer, setSfPredictionsByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [now, setNow] = useState(new Date());
@@ -55,53 +57,84 @@ export default function LeaderboardPage() {
 
       if (playersError) throw playersError;
 
-      const { data: matchesData, error: matchesError } = await supabase
+      const { data: qfMatchesData, error: qfMatchesError } = await supabase
         .from('qf_matches')
         .select('*')
         .order('match_number', { ascending: true });
 
-      if (matchesError) throw matchesError;
+      if (qfMatchesError) throw qfMatchesError;
 
-      const { data: predictionsData, error: predictionsError } = await supabase
+      const { data: qfPredictionsData, error: qfPredictionsError } = await supabase
         .from('qf_predictions')
         .select('*');
 
-      if (predictionsError) throw predictionsError;
+      if (qfPredictionsError) throw qfPredictionsError;
+
+      const { data: sfMatchesData, error: sfMatchesError } = await supabase
+        .from('sf_matches')
+        .select('*')
+        .order('match_number', { ascending: true });
+
+      if (sfMatchesError) throw sfMatchesError;
+
+      const { data: sfPredictionsData, error: sfPredictionsError } = await supabase
+        .from('sf_predictions')
+        .select('*');
+
+      if (sfPredictionsError) throw sfPredictionsError;
 
       const players = playersData || [];
-      const allMatches = matchesData || [];
-      const predictions = predictionsData || [];
+      const allQfMatches = qfMatchesData || [];
+      const qfPredictions = qfPredictionsData || [];
+      const allSfMatches = sfMatchesData || [];
+      const sfPredictions = sfPredictionsData || [];
 
       const nonAdminPlayers = players.filter((p) => !p.is_admin);
 
-      const predMap = {};
-      predictions.forEach((pred) => {
-        if (!predMap[pred.player_id]) {
-          predMap[pred.player_id] = {};
+      const qfPredMap = {};
+      qfPredictions.forEach((pred) => {
+        if (!qfPredMap[pred.player_id]) {
+          qfPredMap[pred.player_id] = {};
         }
-        predMap[pred.player_id][pred.match_id] = pred;
+        qfPredMap[pred.player_id][pred.match_id] = pred;
+      });
+
+      const sfPredMap = {};
+      sfPredictions.forEach((pred) => {
+        if (!sfPredMap[pred.player_id]) {
+          sfPredMap[pred.player_id] = {};
+        }
+        sfPredMap[pred.player_id][pred.match_id] = pred;
       });
 
       const rows = nonAdminPlayers.map((player) => {
-        const playerPredictions = predictions.filter(
+        const playerQfPredictions = qfPredictions.filter(
+          (pred) => pred.player_id === player.id
+        );
+        const playerSfPredictions = sfPredictions.filter(
           (pred) => pred.player_id === player.id
         );
 
-        const qfPoints = playerPredictions.reduce(
+        const qfPoints = playerQfPredictions.reduce(
+          (sum, pred) => sum + (pred.points || 0),
+          0
+        );
+        const sfPoints = playerSfPredictions.reduce(
           (sum, pred) => sum + (pred.points || 0),
           0
         );
 
         const previousPoints = player.previous_points || 0;
-        const totalPoints = previousPoints + qfPoints;
+        const totalPoints = previousPoints + qfPoints + sfPoints;
 
         return {
           playerId: player.id,
           name: player.name,
           previousPoints,
           qfPoints,
+          sfPoints,
           totalPoints,
-          predictionsSubmitted: playerPredictions.length
+          predictionsSubmitted: playerQfPredictions.length + playerSfPredictions.length
         };
       });
 
@@ -123,8 +156,10 @@ export default function LeaderboardPage() {
       });
 
       setLeaderboard(rankedRows);
-      setMatches(allMatches);
-      setPredictionsByPlayer(predMap);
+      setQfMatches(allQfMatches);
+      setSfMatches(allSfMatches);
+      setQfPredictionsByPlayer(qfPredMap);
+      setSfPredictionsByPlayer(sfPredMap);
     } catch (err) {
       setError(`Failed to load leaderboard: ${err.message}`);
     } finally {
@@ -132,12 +167,27 @@ export default function LeaderboardPage() {
     }
   };
 
-  const isMatchRevealed = (match) => {
+  const isQfMatchRevealed = (match) => {
     const revealTime = new Date(new Date(match.kickoff_time).getTime() - 60 * 60 * 1000);
     return now >= revealTime;
   };
 
-  const revealedMatches = matches.filter(isMatchRevealed);
+  const getSfRevealTime = () => {
+    if (!sfMatches || sfMatches.length === 0) return null;
+    const firstMatch = [...sfMatches].sort(
+      (a, b) => new Date(a.kickoff_time) - new Date(b.kickoff_time)
+    )[0];
+    return new Date(new Date(firstMatch.kickoff_time).getTime() - 60 * 60 * 1000);
+  };
+
+  const isSfRevealed = () => {
+    const revealTime = getSfRevealTime();
+    if (!revealTime) return false;
+    return now >= revealTime;
+  };
+
+  const revealedQfMatches = qfMatches.filter(isQfMatchRevealed);
+  const revealedSfMatches = isSfRevealed() ? sfMatches : [];
 
   const getRankDisplay = (rank) => {
     if (rank === 1) return '🥇';
@@ -146,8 +196,8 @@ export default function LeaderboardPage() {
     return rank;
   };
 
-  const renderPredictionCell = (playerId, match) => {
-    const pred = predictionsByPlayer[playerId]?.[match.id];
+  const renderPredictionCell = (predMap, playerId, match) => {
+    const pred = predMap[playerId]?.[match.id];
 
     if (
       !pred ||
@@ -198,7 +248,7 @@ export default function LeaderboardPage() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
           <div>
             <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-2">
-              Quarter Finals
+              World Cup Prediction League
             </p>
             <h1 className="text-3xl md:text-4xl font-bold text-white">
               🏆 Leaderboard
@@ -236,10 +286,11 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {revealedMatches.length === 0 && (
+        {revealedQfMatches.length === 0 && revealedSfMatches.length === 0 && (
           <div className="mb-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
             <p className="text-sm text-slate-400 text-center">
-              🔒 Predictions will be revealed 1 hour before each match.
+              🔒 QF predictions are revealed 1 hour before each match. SF predictions are
+              revealed 1 hour before the first Semi Final.
             </p>
           </div>
         )}
@@ -267,17 +318,30 @@ export default function LeaderboardPage() {
                       QF Points
                     </th>
                     <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                      SF Points
+                    </th>
+                    <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       Total Points
                     </th>
                     <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       Predictions
                     </th>
-                    {revealedMatches.map((match) => (
+                    {revealedQfMatches.map((match) => (
                       <th
-                        key={match.id}
+                        key={`qf_${match.id}`}
                         className="px-3 md:px-5 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"
                       >
-                        M{match.match_number}: {getTeamFlag(match.team_a)} {match.team_a}
+                        QF{match.match_number}: {getTeamFlag(match.team_a)} {match.team_a}
+                        {' - '}
+                        {getTeamFlag(match.team_b)} {match.team_b}
+                      </th>
+                    ))}
+                    {revealedSfMatches.map((match) => (
+                      <th
+                        key={`sf_${match.id}`}
+                        className="px-3 md:px-5 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"
+                      >
+                        SF{match.match_number}: {getTeamFlag(match.team_a)} {match.team_a}
                         {' - '}
                         {getTeamFlag(match.team_b)} {match.team_b}
                       </th>
@@ -334,6 +398,11 @@ export default function LeaderboardPage() {
                           </span>
                         </td>
                         <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm font-semibold text-white">
+                            {row.sfPoints}
+                          </span>
+                        </td>
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
                           <span
                             className={`text-base font-bold ${
                               isFirst ? 'text-emerald-400' : 'text-white'
@@ -344,15 +413,23 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
                           <span className="text-sm text-slate-400">
-                            {row.predictionsSubmitted} / 4
+                            {row.predictionsSubmitted} / 6
                           </span>
                         </td>
-                        {revealedMatches.map((match) => (
+                        {revealedQfMatches.map((match) => (
                           <td
-                            key={match.id}
+                            key={`qf_${match.id}`}
                             className="px-3 md:px-5 py-4 whitespace-nowrap"
                           >
-                            {renderPredictionCell(row.playerId, match)}
+                            {renderPredictionCell(qfPredictionsByPlayer, row.playerId, match)}
+                          </td>
+                        ))}
+                        {revealedSfMatches.map((match) => (
+                          <td
+                            key={`sf_${match.id}`}
+                            className="px-3 md:px-5 py-4 whitespace-nowrap"
+                          >
+                            {renderPredictionCell(sfPredictionsByPlayer, row.playerId, match)}
                           </td>
                         ))}
                       </tr>
@@ -367,10 +444,12 @@ export default function LeaderboardPage() {
         <div className="mt-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
           <p className="text-sm text-slate-400 text-center">
             <span className="text-emerald-400 font-semibold">Total Points</span> = Previous
-            Points + QF Points ·{' '}
-            <span className="text-emerald-400 font-semibold">Scoring per match:</span> Correct
-            qualified team +5 · Exact score +2 · Winning method +1 (only if qualified team is
-            correct) · Max 8 per match · Predictions are revealed 1 hour before each match
+            Points + QF Points + SF Points ·{' '}
+            <span className="text-emerald-400 font-semibold">QF:</span> Qualify +5 · Score +2 ·
+            Method +1 · Max 8 ·{' '}
+            <span className="text-emerald-400 font-semibold">SF:</span> Qualify +7 · Score +3 ·
+            Method +1 · Max 11 · QF predictions revealed 1 hour before each match · SF
+            predictions revealed 1 hour before the first Semi Final
           </p>
         </div>
       </div>

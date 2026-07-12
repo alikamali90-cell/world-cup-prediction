@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import PredictionPage from './pages/PredictionPage';
+import SemiFinalPredictionPage from './pages/SemiFinalPredictionPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import AdminQFMatchesPage from './pages/AdminQFMatchesPage';
 import AdminQFResultsPage from './pages/AdminQFResultsPage';
+import AdminSFResultsPage from './pages/AdminSFResultsPage';
 
 function HomePage() {
   const cards = [
@@ -15,11 +17,19 @@ function HomePage() {
       button: 'Make Predictions'
     },
     {
+      to: '/predict-sf',
+      emoji: '🔥',
+      title: 'Semi Final Prediction Form',
+      description: 'Predict the Semi Finals. Higher stakes: correct finalist is worth 7 points.',
+      accent: 'from-blue-500 to-indigo-600',
+      button: 'Predict Semi Finals'
+    },
+    {
       to: '/leaderboard',
       emoji: '🏆',
       title: 'Leaderboard',
       description: 'See the current standings and find out who is leading the league.',
-      accent: 'from-blue-500 to-indigo-600',
+      accent: 'from-yellow-500 to-amber-600',
       button: 'View Standings'
     },
     {
@@ -33,10 +43,18 @@ function HomePage() {
     {
       to: '/admin/qf-results',
       emoji: '📋',
-      title: 'Admin Results',
-      description: 'Admin only. Enter actual results and recalculate points automatically.',
+      title: 'Admin QF Results',
+      description: 'Admin only. Enter Quarter Final results and recalculate points automatically.',
       accent: 'from-slate-500 to-slate-700',
-      button: 'Enter Results'
+      button: 'Enter QF Results'
+    },
+    {
+      to: '/admin/sf-results',
+      emoji: '📝',
+      title: 'Admin SF Results',
+      description: 'Admin only. Enter Semi Final results and recalculate points automatically.',
+      accent: 'from-slate-500 to-slate-700',
+      button: 'Enter SF Results'
     }
   ];
 
@@ -46,18 +64,24 @@ function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/40 via-transparent to-blue-900/40"></div>
         <div className="relative max-w-5xl mx-auto px-4 pt-14 pb-10 md:pt-20 md:pb-14 text-center">
           <p className="text-emerald-400 text-sm font-semibold tracking-widest uppercase mb-3">
-            Quarter Finals
+            Quarter Finals · Semi Finals
           </p>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
             🌍 World Cup Prediction League
           </h1>
           <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto">
-            Predict the scores, pick the winners and climb the leaderboard. Predictions lock at
-            kickoff — get yours in early.
+            Predict the scores, pick the winners and climb the leaderboard. Predictions lock
+            before kickoff — get yours in early.
           </p>
-          <div className="mt-6 inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-2 text-sm text-slate-300">
-            <span className="text-emerald-400 font-semibold">Scoring:</span>
-            Qualify +5 · Exact score +2 · Method +1 · Max 8 per match
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-2 text-sm text-slate-300">
+              <span className="text-emerald-400 font-semibold">QF Scoring:</span>
+              Qualify +5 · Score +2 · Method +1 · Max 8
+            </div>
+            <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-2 text-sm text-slate-300">
+              <span className="text-blue-400 font-semibold">SF Scoring:</span>
+              Qualify +7 · Score +3 · Method +1 · Max 11
+            </div>
           </div>
         </div>
       </header>
@@ -86,7 +110,7 @@ function HomePage() {
         </div>
 
         <footer className="mt-12 text-center text-xs text-slate-600">
-          Private friends league · Quarter Final stage
+          Private friends league · Quarter Finals &amp; Semi Finals
         </footer>
       </main>
     </div>
@@ -99,9 +123,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/predict" element={<PredictionPage />} />
+        <Route path="/predict-sf" element={<SemiFinalPredictionPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/admin/qf-matches" element={<AdminQFMatchesPage />} />
         <Route path="/admin/qf-results" element={<AdminQFResultsPage />} />
+        <Route path="/admin/sf-results" element={<AdminSFResultsPage />} />
       </Routes>
     </BrowserRouter>
   );
