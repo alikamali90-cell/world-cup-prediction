@@ -26,8 +26,10 @@ export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [qfMatches, setQfMatches] = useState([]);
   const [sfMatches, setSfMatches] = useState([]);
+  const [finalMatches, setFinalMatches] = useState([]);
   const [qfPredictionsByPlayer, setQfPredictionsByPlayer] = useState({});
   const [sfPredictionsByPlayer, setSfPredictionsByPlayer] = useState({});
+  const [finalPredictionsByPlayer, setFinalPredictionsByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [now, setNow] = useState(new Date());
@@ -83,11 +85,26 @@ export default function LeaderboardPage() {
 
       if (sfPredictionsError) throw sfPredictionsError;
 
+      const { data: finalMatchesData, error: finalMatchesError } = await supabase
+        .from('final_matches')
+        .select('*')
+        .order('match_number', { ascending: true });
+
+      if (finalMatchesError) throw finalMatchesError;
+
+      const { data: finalPredictionsData, error: finalPredictionsError } = await supabase
+        .from('final_predictions')
+        .select('*');
+
+      if (finalPredictionsError) throw finalPredictionsError;
+
       const players = playersData || [];
       const allQfMatches = qfMatchesData || [];
       const qfPredictions = qfPredictionsData || [];
       const allSfMatches = sfMatchesData || [];
       const sfPredictions = sfPredictionsData || [];
+      const allFinalMatches = finalMatchesData || [];
+      const finalPredictions = finalPredictionsData || [];
 
       const nonAdminPlayers = players.filter((p) => !p.is_admin);
 
@@ -107,11 +124,22 @@ export default function LeaderboardPage() {
         sfPredMap[pred.player_id][pred.match_id] = pred;
       });
 
+      const finalPredMap = {};
+      finalPredictions.forEach((pred) => {
+        if (!finalPredMap[pred.player_id]) {
+          finalPredMap[pred.player_id] = {};
+        }
+        finalPredMap[pred.player_id][pred.match_id] = pred;
+      });
+
       const rows = nonAdminPlayers.map((player) => {
         const playerQfPredictions = qfPredictions.filter(
           (pred) => pred.player_id === player.id
         );
         const playerSfPredictions = sfPredictions.filter(
+          (pred) => pred.player_id === player.id
+        );
+        const playerFinalPredictions = finalPredictions.filter(
           (pred) => pred.player_id === player.id
         );
 
@@ -123,9 +151,13 @@ export default function LeaderboardPage() {
           (sum, pred) => sum + (pred.points || 0),
           0
         );
+        const finalStagePoints = playerFinalPredictions.reduce(
+          (sum, pred) => sum + (pred.points || 0),
+          0
+        );
 
         const previousPoints = player.previous_points || 0;
-        const totalPoints = previousPoints + qfPoints + sfPoints;
+        const totalPoints = previousPoints + qfPoints + sfPoints + finalStagePoints;
 
         return {
           playerId: player.id,
@@ -133,8 +165,12 @@ export default function LeaderboardPage() {
           previousPoints,
           qfPoints,
           sfPoints,
+          finalStagePoints,
           totalPoints,
-          predictionsSubmitted: playerQfPredictions.length + playerSfPredictions.length
+          predictionsSubmitted:
+            playerQfPredictions.length +
+            playerSfPredictions.length +
+            playerFinalPredictions.length
         };
       });
 
@@ -158,8 +194,10 @@ export default function LeaderboardPage() {
       setLeaderboard(rankedRows);
       setQfMatches(allQfMatches);
       setSfMatches(allSfMatches);
+      setFinalMatches(allFinalMatches);
       setQfPredictionsByPlayer(qfPredMap);
       setSfPredictionsByPlayer(sfPredMap);
+      setFinalPredictionsByPlayer(finalPredMap);
     } catch (err) {
       setError(`Failed to load leaderboard: ${err.message}`);
     } finally {
@@ -186,8 +224,28 @@ export default function LeaderboardPage() {
     return now >= revealTime;
   };
 
+  const getFinalRevealTime = () => {
+    if (!finalMatches || finalMatches.length === 0) return null;
+    const firstMatch = [...finalMatches].sort(
+      (a, b) => new Date(a.kickoff_time) - new Date(b.kickoff_time)
+    )[0];
+    return new Date(new Date(firstMatch.kickoff_time).getTime() - 60 * 60 * 1000);
+  };
+
+  const isFinalRevealed = () => {
+    const revealTime = getFinalRevealTime();
+    if (!revealTime) return false;
+    return now >= revealTime;
+  };
+
   const revealedQfMatches = qfMatches.filter(isQfMatchRevealed);
   const revealedSfMatches = isSfRevealed() ? sfMatches : [];
+  const revealedFinalMatches = isFinalRevealed() ? finalMatches : [];
+
+  const getFinalHeaderPrefix = (match) => {
+    if (match.round_type === 'Final') return 'Final';
+    return '3rd';
+  };
 
   const getRankDisplay = (rank) => {
     if (rank === 1) return '🥇';
@@ -286,14 +344,16 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {revealedQfMatches.length === 0 && revealedSfMatches.length === 0 && (
-          <div className="mb-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
-            <p className="text-sm text-slate-400 text-center">
-              🔒 QF predictions are revealed 1 hour before each match. SF predictions are
-              revealed 1 hour before the first Semi Final.
-            </p>
-          </div>
-        )}
+        {revealedQfMatches.length === 0 &&
+          revealedSfMatches.length === 0 &&
+          revealedFinalMatches.length === 0 && (
+            <div className="mb-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+              <p className="text-sm text-slate-400 text-center">
+                🔒 QF predictions are revealed 1 hour before each match. SF and Final stage
+                predictions are revealed 1 hour before the first match of each stage.
+              </p>
+            </div>
+          )}
 
         {leaderboard.length === 0 && !error ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center">
@@ -321,6 +381,9 @@ export default function LeaderboardPage() {
                       SF Points
                     </th>
                     <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                      Final Stage Points
+                    </th>
+                    <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       Total Points
                     </th>
                     <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
@@ -342,6 +405,17 @@ export default function LeaderboardPage() {
                         className="px-3 md:px-5 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"
                       >
                         SF{match.match_number}: {getTeamFlag(match.team_a)} {match.team_a}
+                        {' - '}
+                        {getTeamFlag(match.team_b)} {match.team_b}
+                      </th>
+                    ))}
+                    {revealedFinalMatches.map((match) => (
+                      <th
+                        key={`final_${match.id}`}
+                        className="px-3 md:px-5 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"
+                      >
+                        {getFinalHeaderPrefix(match)}: {getTeamFlag(match.team_a)}{' '}
+                        {match.team_a}
                         {' - '}
                         {getTeamFlag(match.team_b)} {match.team_b}
                       </th>
@@ -403,6 +477,11 @@ export default function LeaderboardPage() {
                           </span>
                         </td>
                         <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm font-semibold text-white">
+                            {row.finalStagePoints}
+                          </span>
+                        </td>
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
                           <span
                             className={`text-base font-bold ${
                               isFirst ? 'text-emerald-400' : 'text-white'
@@ -413,7 +492,7 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
                           <span className="text-sm text-slate-400">
-                            {row.predictionsSubmitted} / 6
+                            {row.predictionsSubmitted} / 8
                           </span>
                         </td>
                         {revealedQfMatches.map((match) => (
@@ -432,6 +511,18 @@ export default function LeaderboardPage() {
                             {renderPredictionCell(sfPredictionsByPlayer, row.playerId, match)}
                           </td>
                         ))}
+                        {revealedFinalMatches.map((match) => (
+                          <td
+                            key={`final_${match.id}`}
+                            className="px-3 md:px-5 py-4 whitespace-nowrap"
+                          >
+                            {renderPredictionCell(
+                              finalPredictionsByPlayer,
+                              row.playerId,
+                              match
+                            )}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
@@ -443,13 +534,16 @@ export default function LeaderboardPage() {
 
         <div className="mt-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
           <p className="text-sm text-slate-400 text-center">
-            <span className="text-emerald-400 font-semibold">Total Points</span> = Previous
-            Points + QF Points + SF Points ·{' '}
+            <span className="text-emerald-400 font-semibold">Total Points</span> = Previous +
+            QF + SF + Final Stage ·{' '}
             <span className="text-emerald-400 font-semibold">QF:</span> Qualify +5 · Score +2 ·
             Method +1 · Max 8 ·{' '}
-            <span className="text-emerald-400 font-semibold">SF:</span> Qualify +7 · Score +3 ·
-            Method +1 · Max 11 · QF predictions revealed 1 hour before each match · SF
-            predictions revealed 1 hour before the first Semi Final
+            <span className="text-blue-400 font-semibold">SF:</span> Qualify +7 · Score +3 ·
+            Method +1 · Max 11 ·{' '}
+            <span className="text-yellow-400 font-semibold">Final:</span> Champion +10 · Score
+            +5 · Method +1 · Max 16 ·{' '}
+            <span className="text-yellow-400 font-semibold">3rd Place:</span> Winner +7 · Score
+            +3 · Method +1 · Max 11
           </p>
         </div>
       </div>

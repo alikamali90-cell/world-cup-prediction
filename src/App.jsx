@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import PredictionPage from './pages/PredictionPage';
 import SemiFinalPredictionPage from './pages/SemiFinalPredictionPage';
+import FinalPredictionPage from './pages/FinalPredictionPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import AdminQFMatchesPage from './pages/AdminQFMatchesPage';
 import AdminQFResultsPage from './pages/AdminQFResultsPage';
 import AdminSFResultsPage from './pages/AdminSFResultsPage';
+import AdminFinalResultsPage from './pages/AdminFinalResultsPage';
 
 function HomePage() {
   const cards = [
@@ -25,11 +27,19 @@ function HomePage() {
       button: 'Predict Semi Finals'
     },
     {
+      to: '/predict-final',
+      emoji: '👑',
+      title: 'Final Stage Prediction Form',
+      description: 'Predict the Third Place match and the Final. Correct champion is worth 10 points.',
+      accent: 'from-yellow-500 to-amber-600',
+      button: 'Predict the Final'
+    },
+    {
       to: '/leaderboard',
       emoji: '🏆',
       title: 'Leaderboard',
       description: 'See the current standings and find out who is leading the league.',
-      accent: 'from-yellow-500 to-amber-600',
+      accent: 'from-purple-500 to-violet-600',
       button: 'View Standings'
     },
     {
@@ -55,6 +65,14 @@ function HomePage() {
       description: 'Admin only. Enter Semi Final results and recalculate points automatically.',
       accent: 'from-slate-500 to-slate-700',
       button: 'Enter SF Results'
+    },
+    {
+      to: '/admin/final-results',
+      emoji: '🎖️',
+      title: 'Admin Final Results',
+      description: 'Admin only. Enter Third Place and Final results and recalculate points automatically.',
+      accent: 'from-slate-500 to-slate-700',
+      button: 'Enter Final Results'
     }
   ];
 
@@ -64,7 +82,7 @@ function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/40 via-transparent to-blue-900/40"></div>
         <div className="relative max-w-5xl mx-auto px-4 pt-14 pb-10 md:pt-20 md:pb-14 text-center">
           <p className="text-emerald-400 text-sm font-semibold tracking-widest uppercase mb-3">
-            Quarter Finals · Semi Finals
+            Quarter Finals · Semi Finals · Final Stage
           </p>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
             🌍 World Cup Prediction League
@@ -75,12 +93,16 @@ function HomePage() {
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-2 text-sm text-slate-300">
-              <span className="text-emerald-400 font-semibold">QF Scoring:</span>
+              <span className="text-emerald-400 font-semibold">QF:</span>
               Qualify +5 · Score +2 · Method +1 · Max 8
             </div>
             <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-2 text-sm text-slate-300">
-              <span className="text-blue-400 font-semibold">SF Scoring:</span>
+              <span className="text-blue-400 font-semibold">SF:</span>
               Qualify +7 · Score +3 · Method +1 · Max 11
+            </div>
+            <div className="inline-flex items-center gap-2 bg-slate-800/70 border border-slate-700 rounded-full px-4 py-2 text-sm text-slate-300">
+              <span className="text-yellow-400 font-semibold">Final:</span>
+              Champion +10 · Score +5 · Method +1 · Max 16
             </div>
           </div>
         </div>
@@ -110,7 +132,7 @@ function HomePage() {
         </div>
 
         <footer className="mt-12 text-center text-xs text-slate-600">
-          Private friends league · Quarter Finals &amp; Semi Finals
+          Private friends league · Quarter Finals · Semi Finals · Final Stage
         </footer>
       </main>
     </div>
@@ -124,10 +146,12 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/predict" element={<PredictionPage />} />
         <Route path="/predict-sf" element={<SemiFinalPredictionPage />} />
+        <Route path="/predict-final" element={<FinalPredictionPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/admin/qf-matches" element={<AdminQFMatchesPage />} />
         <Route path="/admin/qf-results" element={<AdminQFResultsPage />} />
         <Route path="/admin/sf-results" element={<AdminSFResultsPage />} />
+        <Route path="/admin/final-results" element={<AdminFinalResultsPage />} />
       </Routes>
     </BrowserRouter>
   );
