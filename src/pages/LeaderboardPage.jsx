@@ -156,13 +156,16 @@ export default function LeaderboardPage() {
           0
         );
 
-        const previousPoints = player.previous_points || 0;
-        const totalPoints = previousPoints + qfPoints + sfPoints + finalStagePoints;
+        const previousPoints = player.previous_points ?? 0;
+        const bonusPoints = player.Bonus ?? 0;
+        const totalPoints =
+          previousPoints + bonusPoints + qfPoints + sfPoints + finalStagePoints;
 
         return {
           playerId: player.id,
           name: player.name,
           previousPoints,
+          bonusPoints,
           qfPoints,
           sfPoints,
           finalStagePoints,
@@ -375,6 +378,9 @@ export default function LeaderboardPage() {
                       Previous Points
                     </th>
                     <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                      Bonus
+                    </th>
+                    <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                       QF Points
                     </th>
                     <th className="px-3 md:px-5 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
@@ -467,6 +473,11 @@ export default function LeaderboardPage() {
                           </span>
                         </td>
                         <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
+                          <span className="text-sm font-semibold text-amber-300">
+                            {row.bonusPoints}
+                          </span>
+                        </td>
+                        <td className="px-3 md:px-5 py-4 whitespace-nowrap text-right">
                           <span className="text-sm font-semibold text-white">
                             {row.qfPoints}
                           </span>
@@ -535,7 +546,7 @@ export default function LeaderboardPage() {
         <div className="mt-6 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
           <p className="text-sm text-slate-400 text-center">
             <span className="text-emerald-400 font-semibold">Total Points</span> = Previous +
-            QF + SF + Final Stage ·{' '}
+            Bonus + QF + SF + Final Stage ·{' '}
             <span className="text-emerald-400 font-semibold">QF:</span> Qualify +5 · Score +2 ·
             Method +1 · Max 8 ·{' '}
             <span className="text-blue-400 font-semibold">SF:</span> Qualify +7 · Score +3 ·
